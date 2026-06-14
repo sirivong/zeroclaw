@@ -38,7 +38,7 @@
             const path_to_root = "";
             const default_light_theme = "default-dark";
             const default_dark_theme = "default-dark";
-            window.path_to_searchindex_js = "searchindex-f88ce7ce.js";
+            window.path_to_searchindex_js = "searchindex-55ee3eeb.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="toc-f27dd488.js"></script>
@@ -2433,11 +2433,28 @@ schtasks /Query /TN Daemon de ZeroClaw /FO LIST
 <p>Los mensajes salientes vuelven a pasar por el mismo adaptador de canal. Los adaptadores con soporte para múltiples mensajes (Discord, Slack) pueden transmitir respuestas largas como una secuencia de mensajes; otros (correo electrónico, SMS) vacían el contenido al completar el flujo.</p>
 <h2 id="dónde-se-encuentra-en-el-código"><a class="header" href="#dónde-se-encuentra-en-el-código">Dónde se encuentra en el código</a></h2>
 <ul>
-<li>Bucle del agente: <code>crates/zeroclaw-runtime/src/agent/loop_.rs</code> (<code>process_message</code>)</li>
+<li>Agent loop: <code>crates/zeroclaw-runtime/src/agent/turn/</code> (<code>run_tool_call_loop</code>), with entry points in <code>crates/zeroclaw-runtime/src/agent/loop_.rs</code> (<code>process_message</code>, <code>run</code>)</li>
 <li>Verificaciones de acceso a llamadas de herramientas: <code>crates/zeroclaw-runtime/src/security/</code> (<code>iam_policy.rs</code> <code>evaluate_tool_access</code>)</li>
 <li>Orquestación de canales: <code>crates/zeroclaw-channels/src/orchestrator/</code></li>
 <li>Streaming del proveedor: <code>crates/zeroclaw-api/src/model_provider.rs</code> (enum <code>StreamEvent</code>, reexportado desde <code>zeroclaw-providers</code>), <code>compatible.rs</code> (analizador SSE)</li>
 </ul>
+<p>Since #7415, every transport (channels, CLI, cron, gateway WebSocket, RPC/zerocode, ACP, and the embedded <code>Agent</code> API) runs the same turn engine: <code>run_tool_call_loop</code> in <code>crates/zeroclaw-runtime/src/agent/turn/</code>. The streaming and embedded entry points are thin wrappers in <code>agent.rs</code> that set per-caller knobs (dedup, iteration-cap behavior, event emission) around the shared loop. The <code>turn/</code> module is one file per step:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>File(s)</th><th>Paso</th></tr>
+</thead>
+<tbody>
+<tr><td><code>mod.rs</code></td><td>orchestrator: iteration control, knobs, steering drain</td></tr>
+<tr><td><code>history_window.rs</code> · <code>tool_specs.rs</code> · <code>vision_route.rs</code></td><td>pre-call: history maintenance, tool specs, vision routing</td></tr>
+<tr><td><code>provider_call.rs</code> · <code>stream_consume.rs</code> · <code>stream_guard.rs</code></td><td>the LLM call, stream consumption, mid-stream protocol guarding</td></tr>
+<tr><td><code>parse_response.rs</code> · <code>protocol_detect.rs</code> · <code>context_recovery.rs</code></td><td>response interpretation, parse-issue detection, overflow recovery</td></tr>
+<tr><td><code>approval_gate.rs</code> · <code>call_prep.rs</code></td><td>tool-call approval and preparation (dedup, hooks, delivery defaults)</td></tr>
+<tr><td><code>post_exec.rs</code> · <code>results_collect.rs</code> · <code>history_append.rs</code> · <code>max_iter.rs</code></td><td>result recording, loop detection, history append, iteration cap</td></tr>
+<tr><td><code>context.rs</code> · <code>events.rs</code> · <code>knobs.rs</code> · <code>steering.rs</code> · <code>outcome.rs</code> · <code>redact.rs</code> · <code>delivery_defaults.rs</code></td><td>shared types: turn context, events, per-caller knobs, steering, outcomes, credential scrubbing</td></tr>
+</tbody>
+</table>
+</div>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="cajas"><a class="header" href="#cajas">Cajas</a></h1>
 <p>El workspace está dividido en capas. Los crates edge se comunican con el mundo exterior; los crates core orquestan; los crates de soporte proporcionan utilidades. Cada crate tiene su propio rustdoc, consulta <a href="#referencia-de-la-api">API (rustdoc)</a>.</p>
@@ -3037,7 +3054,7 @@ zeroclaw daemon
 <p><strong>Uso:</strong> <code>zeroclaw [OPCIONES] &lt;COMANDO&gt;</code></p>
 <p><strong>Subcomandos:</strong></p>
 <ul>
-<li><code>quickstart</code> — Inicio rápido — crea un agente funcional de principio a fin. Reemplaza el flujo de incorporación sección por sección con una única ruta basada en presets. No interactivo en esta versión: escribe valores predeterminados equilibrados para risk/runtime/memory e imprime instrucciones con los siguientes pasos</li>
+<li><code>quickstart</code> — Quickstart — create one working agent end-to-end. Replaces the section-by-section onboarding flow with a single preset-driven path. Interactive: the flags below pre-seed checklist selectors but do not skip them; a terminal is required</li>
 <li><code>onboard</code> — Obsoleto. Use <code>zeroclaw quickstart</code>. Cualquier flag genera error</li>
 <li><code>agent</code> — Iniciar el bucle del agente de IA</li>
 <li><code>gateway</code> — Iniciar/gestionar el servidor de gateway (webhooks, websockets)</li>
@@ -3081,7 +3098,7 @@ zeroclaw daemon
 </li>
 </ul>
 <h2 id="zeroclaw-quickstart"><a class="header" href="#zeroclaw-quickstart"><code>zeroclaw quickstart</code></a></h2>
-<p>Inicio rápido — crea un agente funcional de principio a fin. Reemplaza el flujo de incorporación sección por sección con una única ruta basada en preajustes. No interactivo en esta versión: escribe valores predeterminados equilibrados para risk/runtime/memory e imprime las instrucciones de los siguientes pasos</p>
+<p>Quickstart — create one working agent end-to-end. Replaces the section-by-section onboarding flow with a single preset-driven path. Interactive: the flags below pre-seed checklist selectors but do not skip them; a terminal is required</p>
 <p><strong>Uso:</strong> <code>zeroclaw quickstart [OPTIONS]</code></p>
 <p><strong>Opciones:</strong></p>
 <ul>
@@ -6432,6 +6449,10 @@ cargo mdbook build    # reconstruye el libro completo, incluyendo el puente de r
 <p>Una vez que un gateway esté en ejecución, navega a <code>http://&lt;gateway-host&gt;:&lt;port&gt;/api/docs</code> para acceder al explorador de API de Scalar. Las definiciones de esquema y los formularios de “Try it out” provienen de las mismas anotaciones de <code>schemars</code> que utiliza el daemon, por lo que la documentación no puede mentir sobre la superficie en tiempo de ejecución.</p>
 <p>El panel de autenticación del explorador se vincula al esquema <code>bearerAuth</code> declarado en la especificación; pega allí tu token bearer derivado del emparejamiento antes de realizar llamadas en vivo. El atajo de la CLI para la URL es <code>zeroclaw config docs</code>.</p>
 <p>Si el bundle de Scalar no puede cargarse desde la CDN (instalación offline / air-gapped), la página se degrada correctamente y te dirige al spec sin procesar en <code>/api/openapi.json</code> para que puedas usar cualquier visor compatible (Insomnia, Postman, Swagger UI, etc.).</p>
+<h2 id="event-stream-contract"><a class="header" href="#event-stream-contract">Event stream contract</a></h2>
+<p><code>GET /api/events</code> is a raw Server-Sent Events stream of observable runtime events. It is not a deduplicated one-row-per-turn lifecycle timeline.</p>
+<p>Gateway handlers, webhook handling, cron/heartbeat work, and agent-loop observers can all publish lifecycle-shaped events into the same broadcast path. Clients should treat the stream as an append-only observation log. If a dashboard wants a compact turn timeline, it should group or deduplicate by the identifiers present on the event payload rather than assuming each <code>agent_start</code>, <code>llm_request</code>, or <code>agent_end</code> frame appears only once.</p>
+<p><code>GET /api/events/history</code> replays the retained recent events from the same buffer, oldest first. It is a reconnect window for subscribers, not a separate canonical lifecycle store.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="panel-web-gatewayweb_dist_dir"><a class="header" href="#panel-web-gatewayweb_dist_dir">Panel web (<code>gateway.web_dist_dir</code>)</a></h1>
 <p>El daemon del gateway incluye su API HTTP en el binario, pero el HTML/JS/CSS del panel web reside en disco en un directorio <code>web/dist/</code> generado por Vite. El ajuste <code>gateway.web_dist_dir</code> (y su anulación mediante la variable de entorno reflejada en el esquema <code>ZEROCLAW_gateway__web_dist_dir</code>) le indica al daemon dónde está ese directorio. Cuando ni el ajuste ni una ubicación de respaldo conocida contienen un <code>index.html</code> compilado, el gateway arranca en <strong>modo solo-API</strong> y la URL del panel devuelve un mensaje de “no disponible”.</p>
@@ -10283,18 +10304,37 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 
 </details>
 <details class="cfg-field">
+<summary><code>intents_mask</code> <span class="cfg-field-meta"><code>integer?</code> · default <code>null</code></span></summary>
+<p>Raw gateway intent mask override. When set, this exact value is sent in IDENTIFY instead of the derived mask: an operator escape hatch for downstream deployments that consume gateway events through custom builds or forks. The operator owns the consequences: privileged bits still need their Developer Portal toggles, and dropping baseline bits silences message handling (a warning is logged). Unset (default) = derive the mask from the channel’s feature config.</p>
+<p><strong>Colócalo sobre cualquier superficie:</strong></p>
+<div class="os-tabs-src">
+<h4 id="panel-de-control-del-gateway-10-4"><a class="header" href="#panel-de-control-del-gateway-10-4">Panel de control del gateway</a></h4>
+<p>Open <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> and set the <code>channels.discord.&lt;alias&gt;.intents_mask</code> field.</p>
+<h4 id="zerocode-10-4"><a class="header" href="#zerocode-10-4">zerocode</a></h4>
+<p>In the <strong>Config</strong> pane, set the <code>channels.discord.&lt;alias&gt;.intents_mask</code> field.</p>
+<h4 id="zeroclaw-config-8-4"><a class="header" href="#zeroclaw-config-8-4">zeroclaw config</a></h4>
+<pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.intents_mask &lt;value&gt;
+</code></pre>
+<h4 id="variable-de-entorno-7-5"><a class="header" href="#variable-de-entorno-7-5">Variable de entorno</a></h4>
+<p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
+<pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__intents_mask=
+</code></pre>
+</div>
+
+</details>
+<details class="cfg-field">
 <summary><code>interrupt_on_new_message</code> <span class="cfg-field-meta"><code>bool</code> · default <code>false</code></span></summary>
 <p>Cuando es true, un mensaje de Discord más reciente del mismo remitente en el mismo canal cancela la solicitud en curso e inicia una respuesta nueva con el historial preservado.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-10-4"><a class="header" href="#panel-de-control-del-gateway-10-4">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-11-4"><a class="header" href="#panel-de-control-del-gateway-11-4">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.interrupt_on_new_message</code>.</p>
-<h4 id="zerocode-10-4"><a class="header" href="#zerocode-10-4">zerocode</a></h4>
+<h4 id="zerocode-11-4"><a class="header" href="#zerocode-11-4">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configure el campo <code>channels.discord.&lt;alias&gt;.interrupt_on_new_message</code>.</p>
-<h4 id="zeroclaw-config-8-4"><a class="header" href="#zeroclaw-config-8-4">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-9-4"><a class="header" href="#zeroclaw-config-9-4">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.interrupt_on_new_message &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-7-5"><a class="header" href="#variable-de-entorno-7-5">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-8-4"><a class="header" href="#variable-de-entorno-8-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__interrupt_on_new_message=
 </code></pre>
@@ -10306,14 +10346,14 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 <p>Cuando es true, procesa mensajes de otros bots (no solo de humanos). El bot sigue ignorando sus propios mensajes para evitar bucles de retroalimentación.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-11-4"><a class="header" href="#panel-de-control-del-gateway-11-4">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-12-4"><a class="header" href="#panel-de-control-del-gateway-12-4">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.listen_to_bots</code>.</p>
-<h4 id="zerocode-11-4"><a class="header" href="#zerocode-11-4">zerocode</a></h4>
+<h4 id="zerocode-12-4"><a class="header" href="#zerocode-12-4">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.listen_to_bots</code>.</p>
-<h4 id="zeroclaw-config-9-4"><a class="header" href="#zeroclaw-config-9-4">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-10-4"><a class="header" href="#zeroclaw-config-10-4">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.listen_to_bots &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-8-4"><a class="header" href="#variable-de-entorno-8-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-9-4"><a class="header" href="#variable-de-entorno-9-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__listen_to_bots=
 </code></pre>
@@ -10325,14 +10365,14 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 <p>Cuando es true, solo responde a los mensajes que mencionan al bot con @. Los demás mensajes del servidor se ignoran silenciosamente.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-12-4"><a class="header" href="#panel-de-control-del-gateway-12-4">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-13-4"><a class="header" href="#panel-de-control-del-gateway-13-4">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.mention_only</code>.</p>
-<h4 id="zerocode-12-4"><a class="header" href="#zerocode-12-4">zerocode</a></h4>
+<h4 id="zerocode-13-4"><a class="header" href="#zerocode-13-4">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configure el campo <code>channels.discord.&lt;alias&gt;.mention_only</code>.</p>
-<h4 id="zeroclaw-config-10-4"><a class="header" href="#zeroclaw-config-10-4">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-11-4"><a class="header" href="#zeroclaw-config-11-4">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.mention_only &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-9-4"><a class="header" href="#variable-de-entorno-9-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-10-4"><a class="header" href="#variable-de-entorno-10-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__mention_only=
 </code></pre>
@@ -10344,14 +10384,14 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 <p>Retraso (ms) entre el envío de cada fragmento de mensaje en el modo multimensaje. Solo se utiliza cuando <code>stream_mode = "multi_message"</code>.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-13-4"><a class="header" href="#panel-de-control-del-gateway-13-4">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-14-4"><a class="header" href="#panel-de-control-del-gateway-14-4">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.multi_message_delay_ms</code>.</p>
-<h4 id="zerocode-13-4"><a class="header" href="#zerocode-13-4">zerocode</a></h4>
+<h4 id="zerocode-14-4"><a class="header" href="#zerocode-14-4">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.multi_message_delay_ms</code>.</p>
-<h4 id="zeroclaw-config-11-4"><a class="header" href="#zeroclaw-config-11-4">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-12-4"><a class="header" href="#zeroclaw-config-12-4">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.multi_message_delay_ms &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-10-4"><a class="header" href="#variable-de-entorno-10-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-11-4"><a class="header" href="#variable-de-entorno-11-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__multi_message_delay_ms=
 </code></pre>
@@ -10363,14 +10403,14 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 <p>URL de proxy por canal (http, https, socks5, socks5h). Anula la configuración global <code>[proxy]</code> solo para este canal.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-14-4"><a class="header" href="#panel-de-control-del-gateway-14-4">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-15-4"><a class="header" href="#panel-de-control-del-gateway-15-4">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.proxy_url</code>.</p>
-<h4 id="zerocode-14-4"><a class="header" href="#zerocode-14-4">zerocode</a></h4>
+<h4 id="zerocode-15-4"><a class="header" href="#zerocode-15-4">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.proxy_url</code>.</p>
-<h4 id="zeroclaw-config-12-4"><a class="header" href="#zeroclaw-config-12-4">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-13-4"><a class="header" href="#zeroclaw-config-13-4">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.proxy_url &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-11-4"><a class="header" href="#variable-de-entorno-11-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-12-4"><a class="header" href="#variable-de-entorno-12-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__proxy_url=
 </code></pre>
@@ -10382,14 +10422,14 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 <p>Límite mínimo de ritmo de salida por (canal, destinatario) en segundos. Rango: <code>0..=REPLY_MIN_INTERVAL_MAX_SECS</code> (0 lo desactiva).</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-15-4"><a class="header" href="#panel-de-control-del-gateway-15-4">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-16-4"><a class="header" href="#panel-de-control-del-gateway-16-4">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.reply_min_interval_secs</code>.</p>
-<h4 id="zerocode-15-4"><a class="header" href="#zerocode-15-4">zerocode</a></h4>
+<h4 id="zerocode-16-4"><a class="header" href="#zerocode-16-4">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.reply_min_interval_secs</code>.</p>
-<h4 id="zeroclaw-config-13-4"><a class="header" href="#zeroclaw-config-13-4">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-14-4"><a class="header" href="#zeroclaw-config-14-4">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.reply_min_interval_secs &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-12-4"><a class="header" href="#variable-de-entorno-12-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-13-4"><a class="header" href="#variable-de-entorno-13-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__reply_min_interval_secs=
 </code></pre>
@@ -10401,14 +10441,14 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 <p>Profundidad de la cola de regulación de salida por (canal, destinatario). Rango: <code>0..=REPLY_QUEUE_DEPTH_CEILING</code>. Cuando <code>reply_min_interval_secs &gt; 0</code> y este valor es <code>0</code>, el envoltorio de regulación sustituye <code>DEFAULT_REPLY_QUEUE_DEPTH</code> (16). Cuando la cola está llena, se descarta el envío más reciente y se registra un <code>WARN</code>.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-16-4"><a class="header" href="#panel-de-control-del-gateway-16-4">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-17-3"><a class="header" href="#panel-de-control-del-gateway-17-3">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.reply_queue_depth_max</code>.</p>
-<h4 id="zerocode-16-4"><a class="header" href="#zerocode-16-4">zerocode</a></h4>
+<h4 id="zerocode-17-3"><a class="header" href="#zerocode-17-3">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.reply_queue_depth_max</code>.</p>
-<h4 id="zeroclaw-config-14-4"><a class="header" href="#zeroclaw-config-14-4">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-15-4"><a class="header" href="#zeroclaw-config-15-4">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.reply_queue_depth_max &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-13-4"><a class="header" href="#variable-de-entorno-13-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-14-4"><a class="header" href="#variable-de-entorno-14-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__reply_queue_depth_max=
 </code></pre>
@@ -10420,14 +10460,14 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 <p>Tiempo de espera del watchdog de bloqueo en segundos. Cuando es distinto de cero, el bot abortará y reintentará si no se produce ningún progreso dentro de esta duración. 0 = deshabilitado.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-17-3"><a class="header" href="#panel-de-control-del-gateway-17-3">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-18-2"><a class="header" href="#panel-de-control-del-gateway-18-2">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.stall_timeout_secs</code>.</p>
-<h4 id="zerocode-17-3"><a class="header" href="#zerocode-17-3">zerocode</a></h4>
+<h4 id="zerocode-18-2"><a class="header" href="#zerocode-18-2">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.stall_timeout_secs</code>.</p>
-<h4 id="zeroclaw-config-15-4"><a class="header" href="#zeroclaw-config-15-4">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-16-3"><a class="header" href="#zeroclaw-config-16-3">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stall_timeout_secs &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-14-4"><a class="header" href="#variable-de-entorno-14-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-15-4"><a class="header" href="#variable-de-entorno-15-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__stall_timeout_secs=
 </code></pre>
@@ -10439,14 +10479,14 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 <p>Modo de streaming para entrega progresiva de respuestas. <code>off</code> (predeterminado): mensaje único. <code>partial</code>: actualizaciones de borrador editables. <code>multi_message</code>: divide la respuesta en mensajes separados en los límites de párrafo.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-18-2"><a class="header" href="#panel-de-control-del-gateway-18-2">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-19-2"><a class="header" href="#panel-de-control-del-gateway-19-2">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.stream_mode</code>.</p>
-<h4 id="zerocode-18-2"><a class="header" href="#zerocode-18-2">zerocode</a></h4>
+<h4 id="zerocode-19-2"><a class="header" href="#zerocode-19-2">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.stream_mode</code>.</p>
-<h4 id="zeroclaw-config-16-3"><a class="header" href="#zeroclaw-config-16-3">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-17-3"><a class="header" href="#zeroclaw-config-17-3">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stream_mode &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-15-4"><a class="header" href="#variable-de-entorno-15-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-16-3"><a class="header" href="#variable-de-entorno-16-3">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__stream_mode=
 </code></pre>
@@ -10480,11 +10520,11 @@ zeroclaw config set channels.matrix.&lt;alias&gt;.reply_in_thread false    # de 
 </ul>
 <p>Colócalo sobre cualquier superficie:</p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-19-2"><a class="header" href="#panel-de-control-del-gateway-19-2">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-20-2"><a class="header" href="#panel-de-control-del-gateway-20-2">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.stream_mode</code>.</p>
-<h4 id="zerocode-19-2"><a class="header" href="#zerocode-19-2">zerocode</a></h4>
+<h4 id="zerocode-20-2"><a class="header" href="#zerocode-20-2">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.stream_mode</code>.</p>
-<h4 id="zeroclaw-config-17-3"><a class="header" href="#zeroclaw-config-17-3">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-18-2"><a class="header" href="#zeroclaw-config-18-2">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stream_mode &lt;value&gt;
 </code></pre>
 </div>
@@ -10923,11 +10963,11 @@ zeroclaw config set channels.slack.&lt;alias&gt;.thread_replies false    # de re
 </ul>
 <p>Colócalo sobre cualquier superficie:</p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-20-2"><a class="header" href="#panel-de-control-del-gateway-20-2">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-20-3"><a class="header" href="#panel-de-control-del-gateway-20-3">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/slack"><code>/config/channels/slack</code></a> y configura el campo <code>channels.slack.&lt;alias&gt;.stream_drafts</code>.</p>
-<h4 id="zerocode-20-2"><a class="header" href="#zerocode-20-2">zerocode</a></h4>
+<h4 id="zerocode-20-3"><a class="header" href="#zerocode-20-3">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.slack.&lt;alias&gt;.stream_drafts</code>.</p>
-<h4 id="zeroclaw-config-18-2"><a class="header" href="#zeroclaw-config-18-2">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-18-3"><a class="header" href="#zeroclaw-config-18-3">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.slack.&lt;alias&gt;.stream_drafts &lt;value&gt;
 </code></pre>
 </div>
@@ -12507,7 +12547,7 @@ zeroclaw channel start
 <h4 id="zeroclaw-config-16-5"><a class="header" href="#zeroclaw-config-16-5">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.whatsapp.&lt;alias&gt;.reply_queue_depth_max &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-16-3"><a class="header" href="#variable-de-entorno-16-3">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-16-4"><a class="header" href="#variable-de-entorno-16-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__whatsapp__&lt;alias&gt;__reply_queue_depth_max=
 </code></pre>
@@ -12542,7 +12582,7 @@ zeroclaw channel start
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/whatsapp"><code>/config/channels/whatsapp</code></a> y configura el campo <code>channels.whatsapp.&lt;alias&gt;.session_path</code>.</p>
 <h4 id="zerocode-19-4"><a class="header" href="#zerocode-19-4">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.whatsapp.&lt;alias&gt;.session_path</code>.</p>
-<h4 id="zeroclaw-config-18-3"><a class="header" href="#zeroclaw-config-18-3">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-18-4"><a class="header" href="#zeroclaw-config-18-4">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.whatsapp.&lt;alias&gt;.session_path &lt;value&gt;
 </code></pre>
 <h4 id="variable-de-entorno-18-1"><a class="header" href="#variable-de-entorno-18-1">Variable de entorno</a></h4>
@@ -12557,9 +12597,9 @@ zeroclaw channel start
 <p>Token de verificación del webhook (tú lo defines, Meta lo devuelve para la verificación) Solo se usa en modo Cloud API</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-20-3"><a class="header" href="#panel-de-control-del-gateway-20-3">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-20-4"><a class="header" href="#panel-de-control-del-gateway-20-4">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/whatsapp"><code>/config/channels/whatsapp</code></a> y configura el campo <code>channels.whatsapp.&lt;alias&gt;.verify_token</code>.</p>
-<h4 id="zerocode-20-3"><a class="header" href="#zerocode-20-3">zerocode</a></h4>
+<h4 id="zerocode-20-4"><a class="header" href="#zerocode-20-4">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.whatsapp.&lt;alias&gt;.verify_token</code>.</p>
 <h4 id="zeroclaw-config-19-2"><a class="header" href="#zeroclaw-config-19-2">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.whatsapp.&lt;alias&gt;.verify_token    # entrada enmascarada, almacenada cifrada
@@ -12921,17 +12961,54 @@ zeroclaw channel start
 
 </details>
 <details class="cfg-field">
-<summary><code>password</code>* <span class="cfg-field-meta"><code>string</code> · default <code>—</code></span></summary>
+<summary><code>oauth2</code> <span class="cfg-field-meta"><code>EmailOAuth2Config</code> · default <code>—</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
 <h4 id="panel-de-control-del-gateway-10-9"><a class="header" href="#panel-de-control-del-gateway-10-9">Panel de control del gateway</a></h4>
-<p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y configura el campo <code>channels.email.&lt;alias&gt;.password</code>.</p>
+<p>Open <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> and set the <code>channels.email.&lt;alias&gt;.oauth2</code> field.</p>
 <h4 id="zerocode-10-9"><a class="header" href="#zerocode-10-9">zerocode</a></h4>
-<p>En el panel <strong>Config</strong>, establece el campo <code>channels.email.&lt;alias&gt;.password</code>.</p>
+<p>In the <strong>Config</strong> pane, set the <code>channels.email.&lt;alias&gt;.oauth2</code> field.</p>
 <h4 id="zeroclaw-config-9-9"><a class="header" href="#zeroclaw-config-9-9">zeroclaw config</a></h4>
-<pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.password &lt;value&gt;
+<pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.oauth2 &lt;value&gt;
 </code></pre>
 <h4 id="variable-de-entorno-9-9"><a class="header" href="#variable-de-entorno-9-9">Variable de entorno</a></h4>
+<p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
+<pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__oauth2=
+</code></pre>
+</div>
+
+</details>
+<details class="cfg-field">
+<summary><code>observer_mode</code> <span class="cfg-field-meta"><code>bool</code> · default <code>false</code></span></summary>
+<p>When <code>true</code>, the daemon never modifies any IMAP flag: not on startup, not on message receipt, not ever. It only processes emails that arrive after startup (UID &gt;= uid_next at connect time). Existing unread mail stays unread; no <code>\Seen</code> is set implicitly via RFC822 or explicitly via STORE. Think of it as a PA who reads your messages aloud but never touches the read/unread indicator. When <code>false</code> (default), the daemon behaves as an active mailbox owner: it drains UNSEEN messages on startup (RFC822 fetch, which implicitly sets <code>\Seen</code>) and processes all new mail as it arrives.</p>
+<p><strong>Colócalo sobre cualquier superficie:</strong></p>
+<div class="os-tabs-src">
+<h4 id="panel-de-control-del-gateway-11-9"><a class="header" href="#panel-de-control-del-gateway-11-9">Panel de control del gateway</a></h4>
+<p>Open <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> and set the <code>channels.email.&lt;alias&gt;.observer_mode</code> field.</p>
+<h4 id="zerocode-11-9"><a class="header" href="#zerocode-11-9">zerocode</a></h4>
+<p>In the <strong>Config</strong> pane, set the <code>channels.email.&lt;alias&gt;.observer_mode</code> field.</p>
+<h4 id="zeroclaw-config-10-9"><a class="header" href="#zeroclaw-config-10-9">zeroclaw config</a></h4>
+<pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.observer_mode &lt;value&gt;
+</code></pre>
+<h4 id="variable-de-entorno-10-9"><a class="header" href="#variable-de-entorno-10-9">Variable de entorno</a></h4>
+<p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
+<pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__observer_mode=
+</code></pre>
+</div>
+
+</details>
+<details class="cfg-field">
+<summary><code>password</code>* <span class="cfg-field-meta"><code>string</code> · default <code>—</code></span></summary>
+<p><strong>Colócalo sobre cualquier superficie:</strong></p>
+<div class="os-tabs-src">
+<h4 id="panel-de-control-del-gateway-12-9"><a class="header" href="#panel-de-control-del-gateway-12-9">Panel de control del gateway</a></h4>
+<p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y configura el campo <code>channels.email.&lt;alias&gt;.password</code>.</p>
+<h4 id="zerocode-12-9"><a class="header" href="#zerocode-12-9">zerocode</a></h4>
+<p>En el panel <strong>Config</strong>, establece el campo <code>channels.email.&lt;alias&gt;.password</code>.</p>
+<h4 id="zeroclaw-config-11-8"><a class="header" href="#zeroclaw-config-11-8">zeroclaw config</a></h4>
+<pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.password &lt;value&gt;
+</code></pre>
+<h4 id="variable-de-entorno-11-8"><a class="header" href="#variable-de-entorno-11-8">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__password=
 </code></pre>
@@ -12943,14 +13020,14 @@ zeroclaw channel start
 <p>Intervalo de sondeo utilizado cuando el servidor IMAP no anuncia la capacidad IDLE (RFC 2177). Se ignora cuando IDLE está disponible.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-11-9"><a class="header" href="#panel-de-control-del-gateway-11-9">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-13-8"><a class="header" href="#panel-de-control-del-gateway-13-8">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y configura el campo <code>channels.email.&lt;alias&gt;.poll_interval_secs</code>.</p>
-<h4 id="zerocode-11-9"><a class="header" href="#zerocode-11-9">zerocode</a></h4>
+<h4 id="zerocode-13-8"><a class="header" href="#zerocode-13-8">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configure el campo <code>channels.email.&lt;alias&gt;.poll_interval_secs</code>.</p>
-<h4 id="zeroclaw-config-10-9"><a class="header" href="#zeroclaw-config-10-9">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-12-8"><a class="header" href="#zeroclaw-config-12-8">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.poll_interval_secs &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-10-9"><a class="header" href="#variable-de-entorno-10-9">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-12-8"><a class="header" href="#variable-de-entorno-12-8">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__poll_interval_secs=
 </code></pre>
@@ -12961,14 +13038,14 @@ zeroclaw channel start
 <summary><code>smtp_host</code>* <span class="cfg-field-meta"><code>string</code> · default <code>—</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-12-9"><a class="header" href="#panel-de-control-del-gateway-12-9">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-14-8"><a class="header" href="#panel-de-control-del-gateway-14-8">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y configura el campo <code>channels.email.&lt;alias&gt;.smtp_host</code>.</p>
-<h4 id="zerocode-12-9"><a class="header" href="#zerocode-12-9">zerocode</a></h4>
+<h4 id="zerocode-14-8"><a class="header" href="#zerocode-14-8">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.email.&lt;alias&gt;.smtp_host</code>.</p>
-<h4 id="zeroclaw-config-11-8"><a class="header" href="#zeroclaw-config-11-8">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-13-8"><a class="header" href="#zeroclaw-config-13-8">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.smtp_host &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-11-8"><a class="header" href="#variable-de-entorno-11-8">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-13-8"><a class="header" href="#variable-de-entorno-13-8">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__smtp_host=
 </code></pre>
@@ -12979,14 +13056,14 @@ zeroclaw channel start
 <summary><code>smtp_password</code> <span class="cfg-field-meta"><code>string?</code> · default <code>null</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-13-8"><a class="header" href="#panel-de-control-del-gateway-13-8">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-15-8"><a class="header" href="#panel-de-control-del-gateway-15-8">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y establece el campo <code>channels.email.&lt;alias&gt;.smtp_password</code>.</p>
-<h4 id="zerocode-13-8"><a class="header" href="#zerocode-13-8">zerocode</a></h4>
+<h4 id="zerocode-15-8"><a class="header" href="#zerocode-15-8">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.email.&lt;alias&gt;.smtp_password</code>.</p>
-<h4 id="zeroclaw-config-12-8"><a class="header" href="#zeroclaw-config-12-8">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-14-8"><a class="header" href="#zeroclaw-config-14-8">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.smtp_password &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-12-8"><a class="header" href="#variable-de-entorno-12-8">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-14-7"><a class="header" href="#variable-de-entorno-14-7">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__smtp_password=
 </code></pre>
@@ -12997,14 +13074,14 @@ zeroclaw channel start
 <summary><code>smtp_port</code> <span class="cfg-field-meta"><code>integer</code> · default <code>465</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-14-8"><a class="header" href="#panel-de-control-del-gateway-14-8">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-16-8"><a class="header" href="#panel-de-control-del-gateway-16-8">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y establece el campo <code>channels.email.&lt;alias&gt;.smtp_port</code>.</p>
-<h4 id="zerocode-14-8"><a class="header" href="#zerocode-14-8">zerocode</a></h4>
+<h4 id="zerocode-16-8"><a class="header" href="#zerocode-16-8">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.email.&lt;alias&gt;.smtp_port</code>.</p>
-<h4 id="zeroclaw-config-13-8"><a class="header" href="#zeroclaw-config-13-8">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-15-8"><a class="header" href="#zeroclaw-config-15-8">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.smtp_port &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-13-8"><a class="header" href="#variable-de-entorno-13-8">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-15-7"><a class="header" href="#variable-de-entorno-15-7">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__smtp_port=
 </code></pre>
@@ -13015,14 +13092,14 @@ zeroclaw channel start
 <summary><code>smtp_tls</code> <span class="cfg-field-meta"><code>bool</code> · default <code>true</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-15-8"><a class="header" href="#panel-de-control-del-gateway-15-8">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-17-6"><a class="header" href="#panel-de-control-del-gateway-17-6">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y configura el campo <code>channels.email.&lt;alias&gt;.smtp_tls</code>.</p>
-<h4 id="zerocode-15-8"><a class="header" href="#zerocode-15-8">zerocode</a></h4>
+<h4 id="zerocode-17-6"><a class="header" href="#zerocode-17-6">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configura el campo <code>channels.email.&lt;alias&gt;.smtp_tls</code>.</p>
-<h4 id="zeroclaw-config-14-8"><a class="header" href="#zeroclaw-config-14-8">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-16-6"><a class="header" href="#zeroclaw-config-16-6">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.smtp_tls &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-14-7"><a class="header" href="#variable-de-entorno-14-7">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-16-5"><a class="header" href="#variable-de-entorno-16-5">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__smtp_tls=
 </code></pre>
@@ -13033,14 +13110,14 @@ zeroclaw channel start
 <summary><code>smtp_username</code> <span class="cfg-field-meta"><code>string?</code> · default <code>null</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-16-8"><a class="header" href="#panel-de-control-del-gateway-16-8">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-18-5"><a class="header" href="#panel-de-control-del-gateway-18-5">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y configura el campo <code>channels.email.&lt;alias&gt;.smtp_username</code>.</p>
-<h4 id="zerocode-16-8"><a class="header" href="#zerocode-16-8">zerocode</a></h4>
+<h4 id="zerocode-18-5"><a class="header" href="#zerocode-18-5">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.email.&lt;alias&gt;.smtp_username</code>.</p>
-<h4 id="zeroclaw-config-15-8"><a class="header" href="#zeroclaw-config-15-8">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-17-6"><a class="header" href="#zeroclaw-config-17-6">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.smtp_username &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-15-7"><a class="header" href="#variable-de-entorno-15-7">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-17-4"><a class="header" href="#variable-de-entorno-17-4">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__smtp_username=
 </code></pre>
@@ -13051,14 +13128,14 @@ zeroclaw channel start
 <summary><code>username</code>* <span class="cfg-field-meta"><code>string</code> · default <code>—</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-17-6"><a class="header" href="#panel-de-control-del-gateway-17-6">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-19-5"><a class="header" href="#panel-de-control-del-gateway-19-5">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y configura el campo <code>channels.email.&lt;alias&gt;.username</code>.</p>
-<h4 id="zerocode-17-6"><a class="header" href="#zerocode-17-6">zerocode</a></h4>
+<h4 id="zerocode-19-5"><a class="header" href="#zerocode-19-5">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.email.&lt;alias&gt;.username</code>.</p>
-<h4 id="zeroclaw-config-16-6"><a class="header" href="#zeroclaw-config-16-6">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-18-5"><a class="header" href="#zeroclaw-config-18-5">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.username &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-16-4"><a class="header" href="#variable-de-entorno-16-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-18-2"><a class="header" href="#variable-de-entorno-18-2">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__email__&lt;alias&gt;__username=
 </code></pre>
@@ -13072,11 +13149,11 @@ zeroclaw channel start
 <p><strong><code>channels.email.&lt;alias&gt;.password</code> es un secreto.</strong> Se almacena cifrado, nunca en texto plano en <code>config.toml</code>. Configúralo mediante una de estas opciones, que cifran al escribir:</p>
 </blockquote>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-18-5"><a class="header" href="#panel-de-control-del-gateway-18-5">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-20-5"><a class="header" href="#panel-de-control-del-gateway-20-5">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y configura allí el campo <code>channels.email.&lt;alias&gt;.password</code>.</p>
-<h4 id="zerocode-18-5"><a class="header" href="#zerocode-18-5">zerocode</a></h4>
+<h4 id="zerocode-20-5"><a class="header" href="#zerocode-20-5">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configure el campo <code>channels.email.&lt;alias&gt;.password</code> (la entrada está enmascarada).</p>
-<h4 id="zeroclaw-config-17-6"><a class="header" href="#zeroclaw-config-17-6">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-19-3"><a class="header" href="#zeroclaw-config-19-3">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.password    # solicita entrada enmascarada, almacena cifrado
 </code></pre>
 </div>
@@ -13093,11 +13170,11 @@ zeroclaw channel start
 <p><strong><code>channels.email.&lt;alias&gt;.password</code> es un secreto.</strong> Se almacena cifrado, nunca en texto plano en <code>config.toml</code>. Configúralo mediante una de estas opciones, que cifran al escribir:</p>
 </blockquote>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-19-5"><a class="header" href="#panel-de-control-del-gateway-19-5">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-21-3"><a class="header" href="#panel-de-control-del-gateway-21-3">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/email"><code>/config/channels/email</code></a> y configura allí el campo <code>channels.email.&lt;alias&gt;.password</code>.</p>
-<h4 id="zerocode-19-5"><a class="header" href="#zerocode-19-5">zerocode</a></h4>
+<h4 id="zerocode-21-3"><a class="header" href="#zerocode-21-3">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configure el campo <code>channels.email.&lt;alias&gt;.password</code> (la entrada está enmascarada).</p>
-<h4 id="zeroclaw-config-18-4"><a class="header" href="#zeroclaw-config-18-4">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-20-3"><a class="header" href="#zeroclaw-config-20-3">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.email.&lt;alias&gt;.password    # solicita entrada enmascarada, almacena cifrado
 </code></pre>
 </div>
@@ -13110,14 +13187,14 @@ zeroclaw channel start
 <p>Herramientas excluidas de la especificación de herramientas de este canal. Cuando se establece, estas herramientas no se exponen al modelo al responder a través de este canal.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-20-4"><a class="header" href="#panel-de-control-del-gateway-20-4">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-22-3"><a class="header" href="#panel-de-control-del-gateway-22-3">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/gmail_push"><code>/config/channels/gmail_push</code></a> y configura el campo <code>channels.gmail_push.&lt;alias&gt;.excluded_tools</code>.</p>
-<h4 id="zerocode-20-4"><a class="header" href="#zerocode-20-4">zerocode</a></h4>
+<h4 id="zerocode-22-3"><a class="header" href="#zerocode-22-3">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configure el campo <code>channels.gmail_push.&lt;alias&gt;.excluded_tools</code>.</p>
-<h4 id="zeroclaw-config-19-3"><a class="header" href="#zeroclaw-config-19-3">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-21-3"><a class="header" href="#zeroclaw-config-21-3">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.gmail_push.&lt;alias&gt;.excluded_tools &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-17-4"><a class="header" href="#variable-de-entorno-17-4">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-19-2"><a class="header" href="#variable-de-entorno-19-2">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__gmail_push__&lt;alias&gt;__excluded_tools=
 </code></pre>
@@ -13128,14 +13205,14 @@ zeroclaw channel start
 <summary><code>label_filter</code> <span class="cfg-field-meta"><code>string[]</code> · default <code>["INBOX"]</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-21-3"><a class="header" href="#panel-de-control-del-gateway-21-3">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-23-3"><a class="header" href="#panel-de-control-del-gateway-23-3">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/gmail_push"><code>/config/channels/gmail_push</code></a> y configura el campo <code>channels.gmail_push.&lt;alias&gt;.label_filter</code>.</p>
-<h4 id="zerocode-21-3"><a class="header" href="#zerocode-21-3">zerocode</a></h4>
+<h4 id="zerocode-23-3"><a class="header" href="#zerocode-23-3">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.gmail_push.&lt;alias&gt;.label_filter</code>.</p>
-<h4 id="zeroclaw-config-20-3"><a class="header" href="#zeroclaw-config-20-3">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-22-2"><a class="header" href="#zeroclaw-config-22-2">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.gmail_push.&lt;alias&gt;.label_filter &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-18-2"><a class="header" href="#variable-de-entorno-18-2">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-20-2"><a class="header" href="#variable-de-entorno-20-2">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__gmail_push__&lt;alias&gt;__label_filter=
 </code></pre>
@@ -13146,14 +13223,14 @@ zeroclaw channel start
 <summary><code>oauth_token</code> <span class="cfg-field-meta"><code>string</code> · default <code>""</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-22-3"><a class="header" href="#panel-de-control-del-gateway-22-3">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-24-2"><a class="header" href="#panel-de-control-del-gateway-24-2">Panel de control del gateway</a></h4>
 <p>Abra <a href="http://127.0.0.1:42617/config/channels/gmail_push"><code>/config/channels/gmail_push</code></a> y configure el campo <code>channels.gmail_push.&lt;alias&gt;.oauth_token</code>.</p>
-<h4 id="zerocode-22-3"><a class="header" href="#zerocode-22-3">zerocode</a></h4>
+<h4 id="zerocode-24-2"><a class="header" href="#zerocode-24-2">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.gmail_push.&lt;alias&gt;.oauth_token</code>.</p>
-<h4 id="zeroclaw-config-21-3"><a class="header" href="#zeroclaw-config-21-3">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-23-1"><a class="header" href="#zeroclaw-config-23-1">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.gmail_push.&lt;alias&gt;.oauth_token &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-19-2"><a class="header" href="#variable-de-entorno-19-2">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-21-1"><a class="header" href="#variable-de-entorno-21-1">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__gmail_push__&lt;alias&gt;__oauth_token=
 </code></pre>
@@ -13164,14 +13241,14 @@ zeroclaw channel start
 <summary><code>topic</code>* <span class="cfg-field-meta"><code>string</code> · default <code>—</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-23-3"><a class="header" href="#panel-de-control-del-gateway-23-3">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-25-1"><a class="header" href="#panel-de-control-del-gateway-25-1">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/gmail_push"><code>/config/channels/gmail_push</code></a> y configura el campo <code>channels.gmail_push.&lt;alias&gt;.topic</code>.</p>
-<h4 id="zerocode-23-3"><a class="header" href="#zerocode-23-3">zerocode</a></h4>
+<h4 id="zerocode-25-1"><a class="header" href="#zerocode-25-1">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.gmail_push.&lt;alias&gt;.topic</code>.</p>
-<h4 id="zeroclaw-config-22-2"><a class="header" href="#zeroclaw-config-22-2">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-24-1"><a class="header" href="#zeroclaw-config-24-1">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.gmail_push.&lt;alias&gt;.topic &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-20-2"><a class="header" href="#variable-de-entorno-20-2">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-22-1"><a class="header" href="#variable-de-entorno-22-1">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__gmail_push__&lt;alias&gt;__topic=
 </code></pre>
@@ -13182,14 +13259,14 @@ zeroclaw channel start
 <summary><code>webhook_secret</code> <span class="cfg-field-meta"><code>string</code> · default <code>""</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-24-2"><a class="header" href="#panel-de-control-del-gateway-24-2">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-26-1"><a class="header" href="#panel-de-control-del-gateway-26-1">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/gmail_push"><code>/config/channels/gmail_push</code></a> y configura el campo <code>channels.gmail_push.&lt;alias&gt;.webhook_secret</code>.</p>
-<h4 id="zerocode-24-2"><a class="header" href="#zerocode-24-2">zerocode</a></h4>
+<h4 id="zerocode-26-1"><a class="header" href="#zerocode-26-1">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configura el campo <code>channels.gmail_push.&lt;alias&gt;.webhook_secret</code>.</p>
-<h4 id="zeroclaw-config-23-1"><a class="header" href="#zeroclaw-config-23-1">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-25-1"><a class="header" href="#zeroclaw-config-25-1">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.gmail_push.&lt;alias&gt;.webhook_secret &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-21-1"><a class="header" href="#variable-de-entorno-21-1">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-23-1"><a class="header" href="#variable-de-entorno-23-1">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__gmail_push__&lt;alias&gt;__webhook_secret=
 </code></pre>
@@ -13200,14 +13277,14 @@ zeroclaw channel start
 <summary><code>webhook_url</code> <span class="cfg-field-meta"><code>string</code> · default <code>""</code></span></summary>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-25-1"><a class="header" href="#panel-de-control-del-gateway-25-1">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-27-1"><a class="header" href="#panel-de-control-del-gateway-27-1">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/gmail_push"><code>/config/channels/gmail_push</code></a> y configura el campo <code>channels.gmail_push.&lt;alias&gt;.webhook_url</code>.</p>
-<h4 id="zerocode-25-1"><a class="header" href="#zerocode-25-1">zerocode</a></h4>
+<h4 id="zerocode-27-1"><a class="header" href="#zerocode-27-1">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.gmail_push.&lt;alias&gt;.webhook_url</code>.</p>
-<h4 id="zeroclaw-config-24-1"><a class="header" href="#zeroclaw-config-24-1">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-26-1"><a class="header" href="#zeroclaw-config-26-1">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.gmail_push.&lt;alias&gt;.webhook_url &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-22-1"><a class="header" href="#variable-de-entorno-22-1">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-24-1"><a class="header" href="#variable-de-entorno-24-1">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__gmail_push__&lt;alias&gt;__webhook_url=
 </code></pre>
@@ -13221,11 +13298,11 @@ zeroclaw channel start
 <p><strong><code>channels.gmail_push.&lt;alias&gt;.oauth_token</code> es un secreto.</strong> Se almacena cifrado, nunca en texto plano en <code>config.toml</code>. Configúralo mediante una de estas opciones, que cifran al escribir:</p>
 </blockquote>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-26-1"><a class="header" href="#panel-de-control-del-gateway-26-1">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-28-1"><a class="header" href="#panel-de-control-del-gateway-28-1">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/gmail_push"><code>/config/channels/gmail_push</code></a> y configura allí el campo <code>channels.gmail_push.&lt;alias&gt;.oauth_token</code>.</p>
-<h4 id="zerocode-26-1"><a class="header" href="#zerocode-26-1">zerocode</a></h4>
+<h4 id="zerocode-28-1"><a class="header" href="#zerocode-28-1">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configura el campo <code>channels.gmail_push.&lt;alias&gt;.oauth_token</code> (la entrada está enmascarada).</p>
-<h4 id="zeroclaw-config-25-1"><a class="header" href="#zeroclaw-config-25-1">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-27-1"><a class="header" href="#zeroclaw-config-27-1">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.gmail_push.&lt;alias&gt;.oauth_token    # solicita entrada enmascarada, almacena cifrado
 </code></pre>
 </div>
@@ -13583,7 +13660,7 @@ zeroclaw channel start
 <h4 id="zeroclaw-config-17-7"><a class="header" href="#zeroclaw-config-17-7">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.voice_call.&lt;alias&gt;.webhook_port &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-16-5"><a class="header" href="#variable-de-entorno-16-5">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-16-6"><a class="header" href="#variable-de-entorno-16-6">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__voice_call__&lt;alias&gt;__webhook_port=
 </code></pre>
@@ -13610,7 +13687,7 @@ zeroclaw channel start
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/voice_wake"><code>/config/channels/voice_wake</code></a> y configura el campo <code>channels.voice_wake.&lt;alias&gt;.energy_threshold</code>.</p>
 <h4 id="zerocode-18-6"><a class="header" href="#zerocode-18-6">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, configure el campo <code>channels.voice_wake.&lt;alias&gt;.energy_threshold</code>.</p>
-<h4 id="zeroclaw-config-18-5"><a class="header" href="#zeroclaw-config-18-5">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-18-6"><a class="header" href="#zeroclaw-config-18-6">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.voice_wake.&lt;alias&gt;.energy_threshold &lt;value&gt;
 </code></pre>
 <h4 id="variable-de-entorno-17-5"><a class="header" href="#variable-de-entorno-17-5">Variable de entorno</a></h4>
@@ -13644,9 +13721,9 @@ zeroclaw channel start
 <p>Duración máxima de captura en segundos antes de forzar la transcripción. Valor predeterminado: <code>30</code>.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-20-5"><a class="header" href="#panel-de-control-del-gateway-20-5">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-20-6"><a class="header" href="#panel-de-control-del-gateway-20-6">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/voice_wake"><code>/config/channels/voice_wake</code></a> y configura el campo <code>channels.voice_wake.&lt;alias&gt;.max_capture_secs</code>.</p>
-<h4 id="zerocode-20-5"><a class="header" href="#zerocode-20-5">zerocode</a></h4>
+<h4 id="zerocode-20-6"><a class="header" href="#zerocode-20-6">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.voice_wake.&lt;alias&gt;.max_capture_secs</code>.</p>
 <h4 id="zeroclaw-config-20-4"><a class="header" href="#zeroclaw-config-20-4">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.voice_wake.&lt;alias&gt;.max_capture_secs &lt;value&gt;
@@ -14717,6 +14794,30 @@ pub trait Tool: Send + Sync + Attributable {
 <li>De lo contrario, una llamada a una herramienta MCP solicita aprobación a menos que su nombre con <strong>prefijo</strong> (<code>&lt;server&gt;__&lt;tool&gt;</code>) esté en la lista <code>auto_approve</code> del perfil. <code>auto_approve = ["*"]</code> aprueba todo; una entrada exacta como <code>auto_approve = ["filesystem__read_file"]</code> aprueba solo esa herramienta.</li>
 <li><code>always_ask</code> es lo inverso: un nombre (o <code>"*"</code>) allí siempre solicita confirmación, anulando <code>auto_approve</code>.</li>
 </ul>
+<p>Keep the exposure and approval controls separate:</p>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Control</th><th>Ámbito</th><th>Use it for</th></tr>
+</thead>
+<tbody>
+<tr><td><code>tool_filter_groups</code></td><td>Prompt/context exposure</td><td>Decide which MCP tool schemas are visible to the model for a turn.</td></tr>
+<tr><td><code>auto_approve</code> / <code>always_ask</code></td><td>Approval policy</td><td>Decide whether a selected MCP tool call requires operator approval.</td></tr>
+<tr><td><code>allowed_tools</code> / <code>excluded_tools</code></td><td>Capability policy</td><td>Decide which prefixed tool names the risk profile may use at all.</td></tr>
+</tbody>
+</table>
+</div>
+<p>For a hard allowlist, include the MCP tool’s prefixed name in <code>allowed_tools</code> as well as any approval rule:</p>
+<pre><code class="language-toml">[risk_profiles.assistant]
+allowed_tools = [
+  "file_read",
+  "filesystem__read_file",
+]
+auto_approve = [
+  "filesystem__read_file",
+]
+</code></pre>
+<p><code>auto_approve</code> alone does not hide a tool from the model; it only answers the approval question after the model selects that tool. Use <code>tool_filter_groups</code> to reduce prompt noise and <code>allowed_tools</code> / <code>excluded_tools</code> to enforce a capability boundary.</p>
 <p>Consulta <a href="#niveles-de-autonomía">Niveles de autonomía</a> para conocer la superficie completa de campos por perfil, y la <a href="#mcp">Referencia de configuración</a> para ver todos los campos MCP y sus valores predeterminados.</p>
 <div style="break-before: page; page-break-before: always;"></div>
 <h1 id="automatización-del-navegador"><a class="header" href="#automatización-del-navegador">Automatización del navegador</a></h1>
