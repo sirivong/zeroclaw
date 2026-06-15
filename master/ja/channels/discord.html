@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "default-dark";
             const default_dark_theme = "default-dark";
-            window.path_to_searchindex_js = "../searchindex-f586d1b2.js";
+            window.path_to_searchindex_js = "../searchindex-9380202d.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-8e2df50e.js"></script>
+        <script src="../toc-35fdbf2d.js"></script>
         <script>
             // Persist sidebar fold state across navigations. mdBook's toc.js
             // expands only the active page's ancestor chain on every load,
@@ -646,18 +646,37 @@
 
 </details>
 <details class="cfg-field">
+<summary><code>slash_commands</code> <span class="cfg-field-meta"><code>bool</code> · default <code>false</code></span></summary>
+<p>When true, register and serve Discord slash commands (e.g. <code>/ask</code>) over the Gateway WebSocket, in addition to message handling. Default false. (Prototype: currently registers a single <code>/ask &lt;prompt&gt;</code>.)</p>
+<p><strong>任意のサーフェスに設定する場合:</strong></p>
+<div class="os-tabs-src">
+<h4 id="ゲートウェイダッシュボード-18"><a class="header" href="#ゲートウェイダッシュボード-18">ゲートウェイダッシュボード</a></h4>
+<p>Open <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> and set the <code>channels.discord.&lt;alias&gt;.slash_commands</code> field.</p>
+<h4 id="zerocode-18"><a class="header" href="#zerocode-18">zerocode</a></h4>
+<p>In the <strong>Config</strong> pane, set the <code>channels.discord.&lt;alias&gt;.slash_commands</code> field.</p>
+<h4 id="zeroclaw-config-16"><a class="header" href="#zeroclaw-config-16">zeroclaw config</a></h4>
+<pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.slash_commands &lt;value&gt;
+</code></pre>
+<h4 id="環境変数-15"><a class="header" href="#環境変数-15">環境変数</a></h4>
+<p>オーバーライドをエクスポートします（POSIXシェル用。<code>~/.bashrc</code>、<code>~/.zshrc</code>、<code>.env</code>、またはDockerfileに記述します）。<code>&lt;alias&gt;</code>を実際のエイリアスに置き換えてください。</p>
+<pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__slash_commands=
+</code></pre>
+</div>
+
+</details>
+<details class="cfg-field">
 <summary><code>stall_timeout_secs</code> <span class="cfg-field-meta"><code>integer</code> · default <code>0</code></span></summary>
 <p>ストールウォッチドッグのタイムアウト（秒）。0以外の場合、この時間内に進行がなければボットは中止して再試行します。0 = 無効。</p>
 <p><strong>任意のサーフェスに設定する場合:</strong></p>
 <div class="os-tabs-src">
-<h4 id="ゲートウェイダッシュボード-18"><a class="header" href="#ゲートウェイダッシュボード-18">ゲートウェイダッシュボード</a></h4>
+<h4 id="ゲートウェイダッシュボード-19"><a class="header" href="#ゲートウェイダッシュボード-19">ゲートウェイダッシュボード</a></h4>
 <p><a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> を開き、<code>channels.discord.&lt;alias&gt;.stall_timeout_secs</code> フィールドを設定します。</p>
-<h4 id="zerocode-18"><a class="header" href="#zerocode-18">zerocode</a></h4>
+<h4 id="zerocode-19"><a class="header" href="#zerocode-19">zerocode</a></h4>
 <p><strong>Config</strong> ペインで、<code>channels.discord.&lt;alias&gt;.stall_timeout_secs</code> フィールドを設定します。</p>
-<h4 id="zeroclaw-config-16"><a class="header" href="#zeroclaw-config-16">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-17"><a class="header" href="#zeroclaw-config-17">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stall_timeout_secs &lt;value&gt;
 </code></pre>
-<h4 id="環境変数-15"><a class="header" href="#環境変数-15">環境変数</a></h4>
+<h4 id="環境変数-16"><a class="header" href="#環境変数-16">環境変数</a></h4>
 <p>オーバーライドをエクスポートします（POSIXシェル用。<code>~/.bashrc</code>、<code>~/.zshrc</code>、<code>.env</code>、またはDockerfileに記述します）。<code>&lt;alias&gt;</code>を実際のエイリアスに置き換えてください。</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__stall_timeout_secs=
 </code></pre>
@@ -669,14 +688,14 @@
 <p>プログレッシブなレスポンス配信のためのストリーミングモード。<code>off</code>（デフォルト）：単一メッセージ。<code>partial</code>：編集可能なドラフトの更新。<code>multi_message</code>：段落の境界でレスポンスを別々のメッセージに分割。</p>
 <p><strong>任意のサーフェスに設定する場合:</strong></p>
 <div class="os-tabs-src">
-<h4 id="ゲートウェイダッシュボード-19"><a class="header" href="#ゲートウェイダッシュボード-19">ゲートウェイダッシュボード</a></h4>
+<h4 id="ゲートウェイダッシュボード-20"><a class="header" href="#ゲートウェイダッシュボード-20">ゲートウェイダッシュボード</a></h4>
 <p><a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> を開き、<code>channels.discord.&lt;alias&gt;.stream_mode</code> フィールドを設定します。</p>
-<h4 id="zerocode-19"><a class="header" href="#zerocode-19">zerocode</a></h4>
+<h4 id="zerocode-20"><a class="header" href="#zerocode-20">zerocode</a></h4>
 <p><strong>Config</strong> ペインで、<code>channels.discord.&lt;alias&gt;.stream_mode</code> フィールドを設定します。</p>
-<h4 id="zeroclaw-config-17"><a class="header" href="#zeroclaw-config-17">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-18"><a class="header" href="#zeroclaw-config-18">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stream_mode &lt;value&gt;
 </code></pre>
-<h4 id="環境変数-16"><a class="header" href="#環境変数-16">環境変数</a></h4>
+<h4 id="環境変数-17"><a class="header" href="#環境変数-17">環境変数</a></h4>
 <p>オーバーライドをエクスポートします（POSIXシェル用。<code>~/.bashrc</code>、<code>~/.zshrc</code>、<code>.env</code>、またはDockerfileに記述します）。<code>&lt;alias&gt;</code>を実際のエイリアスに置き換えてください。</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__stream_mode=
 </code></pre>
@@ -710,11 +729,11 @@
 </ul>
 <p>任意のサーフェスに設定します:</p>
 <div class="os-tabs-src">
-<h4 id="ゲートウェイダッシュボード-20"><a class="header" href="#ゲートウェイダッシュボード-20">ゲートウェイダッシュボード</a></h4>
+<h4 id="ゲートウェイダッシュボード-21"><a class="header" href="#ゲートウェイダッシュボード-21">ゲートウェイダッシュボード</a></h4>
 <p><a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> を開き、<code>channels.discord.&lt;alias&gt;.stream_mode</code> フィールドを設定します。</p>
-<h4 id="zerocode-20"><a class="header" href="#zerocode-20">zerocode</a></h4>
+<h4 id="zerocode-21"><a class="header" href="#zerocode-21">zerocode</a></h4>
 <p><strong>Config</strong> ペインで、<code>channels.discord.&lt;alias&gt;.stream_mode</code> フィールドを設定します。</p>
-<h4 id="zeroclaw-config-18"><a class="header" href="#zeroclaw-config-18">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-19"><a class="header" href="#zeroclaw-config-19">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stream_mode &lt;value&gt;
 </code></pre>
 </div>

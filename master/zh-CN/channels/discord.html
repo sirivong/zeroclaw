@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "default-dark";
             const default_dark_theme = "default-dark";
-            window.path_to_searchindex_js = "../searchindex-6ce3900a.js";
+            window.path_to_searchindex_js = "../searchindex-f438f2f3.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-9364d956.js"></script>
+        <script src="../toc-e415489f.js"></script>
         <script>
             // Persist sidebar fold state across navigations. mdBook's toc.js
             // expands only the active page's ancestor chain on every load,
@@ -646,18 +646,37 @@
 
 </details>
 <details class="cfg-field">
+<summary><code>slash_commands</code> <span class="cfg-field-meta"><code>bool</code> · default <code>false</code></span></summary>
+<p>When true, register and serve Discord slash commands (e.g. <code>/ask</code>) over the Gateway WebSocket, in addition to message handling. Default false. (Prototype: currently registers a single <code>/ask &lt;prompt&gt;</code>.)</p>
+<p><strong>将它放置在任何表面上：</strong></p>
+<div class="os-tabs-src">
+<h4 id="网关仪表板-18"><a class="header" href="#网关仪表板-18">网关仪表板</a></h4>
+<p>Open <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> and set the <code>channels.discord.&lt;alias&gt;.slash_commands</code> field.</p>
+<h4 id="zerocode-18"><a class="header" href="#zerocode-18">zerocode</a></h4>
+<p>In the <strong>Config</strong> pane, set the <code>channels.discord.&lt;alias&gt;.slash_commands</code> field.</p>
+<h4 id="zeroclaw-config-16"><a class="header" href="#zeroclaw-config-16">zeroclaw config</a></h4>
+<pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.slash_commands &lt;value&gt;
+</code></pre>
+<h4 id="环境变量-15"><a class="header" href="#环境变量-15">环境变量</a></h4>
+<p>导出此覆盖配置（POSIX shell；可放入 <code>~/.bashrc</code>、<code>~/.zshrc</code>、<code>.env</code> 或 Dockerfile 中）。将 <code>&lt;alias&gt;</code> 替换为实际的别名：</p>
+<pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__slash_commands=
+</code></pre>
+</div>
+
+</details>
+<details class="cfg-field">
 <summary><code>stall_timeout_secs</code> <span class="cfg-field-meta"><code>integer</code> · default <code>0</code></span></summary>
 <p>停滞监视器超时时间（秒）。当值非零时，如果在此时间内没有进展，机器人将中止并重试。0 = 禁用。</p>
 <p><strong>将它放置在任何表面上：</strong></p>
 <div class="os-tabs-src">
-<h4 id="网关仪表板-18"><a class="header" href="#网关仪表板-18">网关仪表板</a></h4>
+<h4 id="网关仪表板-19"><a class="header" href="#网关仪表板-19">网关仪表板</a></h4>
 <p>打开 <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> 并设置 <code>channels.discord.&lt;alias&gt;.stall_timeout_secs</code> 字段。</p>
-<h4 id="zerocode-18"><a class="header" href="#zerocode-18">zerocode</a></h4>
+<h4 id="zerocode-19"><a class="header" href="#zerocode-19">zerocode</a></h4>
 <p>在 <strong>Config</strong> 窗格中，设置 <code>channels.discord.&lt;alias&gt;.stall_timeout_secs</code> 字段。</p>
-<h4 id="zeroclaw-config-16"><a class="header" href="#zeroclaw-config-16">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-17"><a class="header" href="#zeroclaw-config-17">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stall_timeout_secs &lt;value&gt;
 </code></pre>
-<h4 id="环境变量-15"><a class="header" href="#环境变量-15">环境变量</a></h4>
+<h4 id="环境变量-16"><a class="header" href="#环境变量-16">环境变量</a></h4>
 <p>导出此覆盖配置（POSIX shell；可放入 <code>~/.bashrc</code>、<code>~/.zshrc</code>、<code>.env</code> 或 Dockerfile 中）。将 <code>&lt;alias&gt;</code> 替换为实际的别名：</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__stall_timeout_secs=
 </code></pre>
@@ -669,14 +688,14 @@
 <p>流式模式，用于渐进式传递响应。<code>off</code>（默认）：单条消息。<code>partial</code>：可编辑的草稿更新。<code>multi_message</code>：在段落边界处将响应拆分为多条独立消息。</p>
 <p><strong>将它放置在任何表面上：</strong></p>
 <div class="os-tabs-src">
-<h4 id="网关仪表板-19"><a class="header" href="#网关仪表板-19">网关仪表板</a></h4>
+<h4 id="网关仪表板-20"><a class="header" href="#网关仪表板-20">网关仪表板</a></h4>
 <p>打开 <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> 并设置 <code>channels.discord.&lt;alias&gt;.stream_mode</code> 字段。</p>
-<h4 id="zerocode-19"><a class="header" href="#zerocode-19">zerocode</a></h4>
+<h4 id="zerocode-20"><a class="header" href="#zerocode-20">zerocode</a></h4>
 <p>在 <strong>Config</strong> 窗格中，设置 <code>channels.discord.&lt;alias&gt;.stream_mode</code> 字段。</p>
-<h4 id="zeroclaw-config-17"><a class="header" href="#zeroclaw-config-17">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-18"><a class="header" href="#zeroclaw-config-18">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stream_mode &lt;value&gt;
 </code></pre>
-<h4 id="环境变量-16"><a class="header" href="#环境变量-16">环境变量</a></h4>
+<h4 id="环境变量-17"><a class="header" href="#环境变量-17">环境变量</a></h4>
 <p>导出此覆盖配置（POSIX shell；可放入 <code>~/.bashrc</code>、<code>~/.zshrc</code>、<code>.env</code> 或 Dockerfile 中）。将 <code>&lt;alias&gt;</code> 替换为实际的别名：</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__stream_mode=
 </code></pre>
@@ -710,11 +729,11 @@
 </ul>
 <p>将其放置在任何表面上：</p>
 <div class="os-tabs-src">
-<h4 id="网关仪表板-20"><a class="header" href="#网关仪表板-20">网关仪表板</a></h4>
+<h4 id="网关仪表板-21"><a class="header" href="#网关仪表板-21">网关仪表板</a></h4>
 <p>打开 <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> 并设置 <code>channels.discord.&lt;alias&gt;.stream_mode</code> 字段。</p>
-<h4 id="zerocode-20"><a class="header" href="#zerocode-20">zerocode</a></h4>
+<h4 id="zerocode-21"><a class="header" href="#zerocode-21">zerocode</a></h4>
 <p>在 <strong>Config</strong> 窗格中，设置 <code>channels.discord.&lt;alias&gt;.stream_mode</code> 字段。</p>
-<h4 id="zeroclaw-config-18"><a class="header" href="#zeroclaw-config-18">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-19"><a class="header" href="#zeroclaw-config-19">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stream_mode &lt;value&gt;
 </code></pre>
 </div>

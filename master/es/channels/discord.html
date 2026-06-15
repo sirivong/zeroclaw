@@ -37,10 +37,10 @@
             const path_to_root = "../";
             const default_light_theme = "default-dark";
             const default_dark_theme = "default-dark";
-            window.path_to_searchindex_js = "../searchindex-55ee3eeb.js";
+            window.path_to_searchindex_js = "../searchindex-bbf436d2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-f27dd488.js"></script>
+        <script src="../toc-a6bafbbc.js"></script>
         <script>
             // Persist sidebar fold state across navigations. mdBook's toc.js
             // expands only the active page's ancestor chain on every load,
@@ -646,18 +646,37 @@
 
 </details>
 <details class="cfg-field">
+<summary><code>slash_commands</code> <span class="cfg-field-meta"><code>bool</code> · default <code>false</code></span></summary>
+<p>When true, register and serve Discord slash commands (e.g. <code>/ask</code>) over the Gateway WebSocket, in addition to message handling. Default false. (Prototype: currently registers a single <code>/ask &lt;prompt&gt;</code>.)</p>
+<p><strong>Colócalo sobre cualquier superficie:</strong></p>
+<div class="os-tabs-src">
+<h4 id="panel-de-control-del-gateway-18"><a class="header" href="#panel-de-control-del-gateway-18">Panel de control del gateway</a></h4>
+<p>Open <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> and set the <code>channels.discord.&lt;alias&gt;.slash_commands</code> field.</p>
+<h4 id="zerocode-18"><a class="header" href="#zerocode-18">zerocode</a></h4>
+<p>In the <strong>Config</strong> pane, set the <code>channels.discord.&lt;alias&gt;.slash_commands</code> field.</p>
+<h4 id="zeroclaw-config-16"><a class="header" href="#zeroclaw-config-16">zeroclaw config</a></h4>
+<pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.slash_commands &lt;value&gt;
+</code></pre>
+<h4 id="variable-de-entorno-15"><a class="header" href="#variable-de-entorno-15">Variable de entorno</a></h4>
+<p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
+<pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__slash_commands=
+</code></pre>
+</div>
+
+</details>
+<details class="cfg-field">
 <summary><code>stall_timeout_secs</code> <span class="cfg-field-meta"><code>integer</code> · default <code>0</code></span></summary>
 <p>Tiempo de espera del watchdog de bloqueo en segundos. Cuando es distinto de cero, el bot abortará y reintentará si no se produce ningún progreso dentro de esta duración. 0 = deshabilitado.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-18"><a class="header" href="#panel-de-control-del-gateway-18">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-19"><a class="header" href="#panel-de-control-del-gateway-19">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.stall_timeout_secs</code>.</p>
-<h4 id="zerocode-18"><a class="header" href="#zerocode-18">zerocode</a></h4>
+<h4 id="zerocode-19"><a class="header" href="#zerocode-19">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.stall_timeout_secs</code>.</p>
-<h4 id="zeroclaw-config-16"><a class="header" href="#zeroclaw-config-16">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-17"><a class="header" href="#zeroclaw-config-17">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stall_timeout_secs &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-15"><a class="header" href="#variable-de-entorno-15">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-16"><a class="header" href="#variable-de-entorno-16">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__stall_timeout_secs=
 </code></pre>
@@ -669,14 +688,14 @@
 <p>Modo de streaming para entrega progresiva de respuestas. <code>off</code> (predeterminado): mensaje único. <code>partial</code>: actualizaciones de borrador editables. <code>multi_message</code>: divide la respuesta en mensajes separados en los límites de párrafo.</p>
 <p><strong>Colócalo sobre cualquier superficie:</strong></p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-19"><a class="header" href="#panel-de-control-del-gateway-19">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-20"><a class="header" href="#panel-de-control-del-gateway-20">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.stream_mode</code>.</p>
-<h4 id="zerocode-19"><a class="header" href="#zerocode-19">zerocode</a></h4>
+<h4 id="zerocode-20"><a class="header" href="#zerocode-20">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.stream_mode</code>.</p>
-<h4 id="zeroclaw-config-17"><a class="header" href="#zeroclaw-config-17">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-18"><a class="header" href="#zeroclaw-config-18">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stream_mode &lt;value&gt;
 </code></pre>
-<h4 id="variable-de-entorno-16"><a class="header" href="#variable-de-entorno-16">Variable de entorno</a></h4>
+<h4 id="variable-de-entorno-17"><a class="header" href="#variable-de-entorno-17">Variable de entorno</a></h4>
 <p>Exporte la anulación (shells POSIX; colóquelo en <code>~/.bashrc</code>, <code>~/.zshrc</code>, <code>.env</code> o un Dockerfile). Reemplace <code>&lt;alias&gt;</code> con el alias literal:</p>
 <pre><code class="language-sh">export ZEROCLAW_channels__discord__&lt;alias&gt;__stream_mode=
 </code></pre>
@@ -710,11 +729,11 @@
 </ul>
 <p>Colócalo sobre cualquier superficie:</p>
 <div class="os-tabs-src">
-<h4 id="panel-de-control-del-gateway-20"><a class="header" href="#panel-de-control-del-gateway-20">Panel de control del gateway</a></h4>
+<h4 id="panel-de-control-del-gateway-21"><a class="header" href="#panel-de-control-del-gateway-21">Panel de control del gateway</a></h4>
 <p>Abre <a href="http://127.0.0.1:42617/config/channels/discord"><code>/config/channels/discord</code></a> y configura el campo <code>channels.discord.&lt;alias&gt;.stream_mode</code>.</p>
-<h4 id="zerocode-20"><a class="header" href="#zerocode-20">zerocode</a></h4>
+<h4 id="zerocode-21"><a class="header" href="#zerocode-21">zerocode</a></h4>
 <p>En el panel <strong>Config</strong>, establece el campo <code>channels.discord.&lt;alias&gt;.stream_mode</code>.</p>
-<h4 id="zeroclaw-config-18"><a class="header" href="#zeroclaw-config-18">zeroclaw config</a></h4>
+<h4 id="zeroclaw-config-19"><a class="header" href="#zeroclaw-config-19">zeroclaw config</a></h4>
 <pre><code class="language-sh">zeroclaw config set channels.discord.&lt;alias&gt;.stream_mode &lt;value&gt;
 </code></pre>
 </div>
